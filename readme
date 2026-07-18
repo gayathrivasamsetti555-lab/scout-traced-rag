@@ -1,0 +1,113 @@
+---
+title: Scout — Traced RAG
+emoji: 📜
+colorFrom: orange
+colorTo: yellow
+sdk: streamlit
+sdk_version: "1.40.0"
+app_file: app.py
+pinned: false
+---
+
+# Scout — a RAG assistant that shows its work (Gemini backend)
+
+Most RAG demos hide retrieval behind a chat bubble. This one doesn't.
+Every answer is traced back to the exact passages it came from — plotted
+in the real embedding space the retriever searched, ranked on a visible
+selection board, and cited back to the actual source file instead of an
+opaque "Source 3."
+
+This version uses **Google's Gemini** for generation, running live here
+on a public Space. A Claude-backed version of the same app is on GitHub
+→ *[link]* (kept as source rather than a public live demo, since Claude's
+API has no comparable free tier for anonymous traffic). Both implement
+the exact same `generate(question, chunks) -> {answer, sources, error}`
+interface in `generator.py`, so the two are drop-in swappable —
+`app.py`, `retriever.py`, and `ingest.py` are identical between them.
+
+## What it does
+
+1. **Embed** your question with `all-MiniLM-L6-v2` (the same model used to
+   index the archive).
+2. **Search** a Chroma vector store for the 12 nearest chunks by vector
+   distance.
+3. **Rank & select** the closest 5 to pass to the generator — the other 7
+   are kept visible, not discarded, so you can see what almost made the cut.
+4. **Generate** an answer with Gemini, grounded strictly in those 5 chunks,
+   with citations resolved back to real filenames.
+5. **Visualize** the whole trace: a pipeline flow diagram, a ranked
+   selection board, a 2D projection of the actual retrieval space, a
+   per-document coverage map, and a composite RAG-quality score.
+
+## Architecture
+
+```
+data/*.pdf, *.txt
+      │
+      ▼
+  ingest.py  ──►  chunk (800 chars, 100 overlap) ──► embed (MiniLM-L6-v2) ──► Chroma (chroma_db/)
+                                                                                    │
+question ──► retriever.py (query embedding + nearest-neighbor search) ◄────────────┘
+      │
+      ▼
+generator.py ──► Gemini (gemini-2.5-flash) ──► grounded answer + citations
+      │
+      ▼
+app.py (Streamlit) ──► flow diagram · selection board · retrieval-space plot
+                        · coverage map · quality score · passage cards
+```
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `app.py` | Streamlit UI — query panel, visualizations, sidebar recommendations |
+| `retriever.py` | Embeds the question and queries Chroma for the nearest chunks |
+| `generator.py` | Builds the grounded prompt and calls Gemini for the final answer |
+| `ingest.py` | Chunks and embeds everything in `data/`, (re)builds the Chroma collection |
+| `data/` | Source PDFs/text files that make up the archive |
+| `chroma_db/` | Persisted vector store (rebuilt automatically on each fresh deploy) |
+
+## Running locally
+
+```bash
+pip install -r requirements.txt
+```
+
+Create a `.env` file (not committed) with:
+
+```
+GOOGLE_API_KEY=your_key_here
+```
+
+Then:
+
+```bash
+streamlit run app.py
+```
+
+## Deploying on Hugging Face Spaces
+
+1. Push this repo (including `data/`, excluding `.env` and `chroma_db/`)
+   to a Space using the Streamlit SDK — the frontmatter at the top of
+   this file already configures it.
+2. In **Settings → Repository secrets**, add `GOOGLE_API_KEY`. Never put
+   it in a committed `.env`.
+3. Spaces rebuilds the container from scratch on each deploy, so
+   `chroma_db/` won't exist yet and will be rebuilt automatically from
+   `data/` on first launch — no stale-index risk the way a long-running
+   local dev session can have.
+4. Confirm your PDFs are actually committed under `data/`; Spaces builds
+   from the repo, not your local filesystem.
+
+## Notes on the numbers you'll see
+
+- **Distance, not "match %."** Every similarity figure shown is Chroma's
+  raw vector distance — lower is closer. Percentages aren't shown as if
+  they were a calibrated probability of relevance, since no such
+  conversion is well-defined for arbitrary embedding distances.
+- **RAG quality score** is a composite of average match strength, source
+  diversity, and separation between the top hit and the rest — not a
+  measure of factual correctness.
+- **Related papers/stars** in the sidebar are derived from the same real
+  distance values (rank-based), not fabricated ratings.
