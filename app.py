@@ -168,7 +168,7 @@ with query_col:
         placeholder="e.g. how does chunking affect retrieval precision?",
     )
 with btn_col:
-    trace_clicked = st.button("Trace it →", use_container_width=True)
+    trace_clicked = st.button("Trace it →", width="stretch")
 
 chip_cols = st.columns(len(examples))
 for col, ex in zip(chip_cols, examples):
@@ -229,7 +229,7 @@ if "scout_result" in st.session_state:
                 unsafe_allow_html=True,
             )
             st.button("🔁 Retry generation", key="retry_generation",
-                      on_click=regenerate_answer, use_container_width=True)
+                      on_click=regenerate_answer, width="stretch")
         else:
             st.markdown(
                 f"""
@@ -252,17 +252,16 @@ if "scout_result" in st.session_state:
         st.markdown("<span class='panel-label'>Retrieval space</span>", unsafe_allow_html=True)
         ef = get_embedder()
         fig = build_retrieval_space_fig(candidates, chunks, payload["question"], ef)
-        st.plotly_chart(fig, use_container_width=True, theme=None)
+        st.plotly_chart(fig, width="stretch", theme=None)
         st.caption("🔵 your question · 🟠 retrieved chunk · ⚪ other candidates — hover any point for details")
 
     # ── 2. Chunk Visual Board ─────────────────────────────────────────────
     section_head(2, "Chunk Visual Board — how chunks were selected")
-
-    st.markdown('<div class="board-card"><div class="flow-wrap">', unsafe_allow_html=True)
-    st.markdown(render_flow_diagram(total_n, len(chunks)), unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
+# 🎯 FIXED: Compute clean 0-100 percentages using the updated match_pct logic
+    from scout_lib.scoring import match_pct
     pcts = [match_pct(c["distance"]) for c in candidates]
+
+    # Render board figure safely
     board_fig = build_selection_board_fig(candidates, chunks, pcts)
     st.plotly_chart(board_fig, use_container_width=True, theme=None)
     st.markdown(
@@ -278,7 +277,7 @@ if "scout_result" in st.session_state:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<span class='panel-label'>Document coverage map</span>", unsafe_allow_html=True)
     st.markdown('<div class="board-card">', unsafe_allow_html=True)
-    st.plotly_chart(render_coverage_map(candidates, data_files), use_container_width=True, theme=None)
+    st.plotly_chart(render_coverage_map(candidates, data_files), width="stretch", theme=None)
     st.markdown(
         """<div class="board-note">
         How much of this trace's candidate pool came from each loaded file. Files with no bar
@@ -339,7 +338,7 @@ if "scout_result" in st.session_state:
                 st.button("Ask about this →", key=f"rec_pass_{j}",
                           on_click=set_question_and_trace,
                           args=(f"Tell me more about what's in {c['source']}",),
-                          use_container_width=True)
+                          width="stretch")
         else:
             st.caption("No runner-ups — the whole pool was used.")
 
@@ -358,7 +357,7 @@ if "scout_result" in st.session_state:
                 st.button(f"Ask about {f_name} →", key=f"rec_file_{f_name}",
                           on_click=set_question_and_trace,
                           args=(f"What does {f_name} say?",),
-                          use_container_width=True)
+                          width="stretch")
         else:
             st.caption("Every file has shown up in a trace so far.")
 else:
