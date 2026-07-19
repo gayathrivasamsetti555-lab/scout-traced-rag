@@ -172,8 +172,14 @@ def retrieve(question: str, n_results: int = 5, fetch_k: int = 20,
     selected = _mmr_select(query_emb, candidates, n_results)
 
     # strip the embedding before returning — callers don't need it
+    # Pass the embedding along so the visuals block can use it
     return [
-        {'text': c['text'], 'source': c['source'], 'distance': c['distance']}
+        {
+            'text': c['text'], 
+            'source': c['source'], 
+            'distance': c['distance'],
+            'embedding': c['embedding']  # 💡 ADD THIS LINE
+        }
         for c in selected
     ]
 

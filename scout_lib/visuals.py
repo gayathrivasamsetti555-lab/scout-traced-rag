@@ -135,7 +135,6 @@ def build_retrieval_space_fig(candidates: list[dict], chunks: list[dict], query_
     try:
         query_embedding = embedding_function([query_text])[0]
         candidate_embeddings = [c["embedding"] for c in candidates if "embedding" in c]
-        
         # 🎯 FIX: Elegant styled fallback layout container when no embeddings are parsed
         if not candidate_embeddings:
             fig.update_layout(
