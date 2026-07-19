@@ -23,7 +23,7 @@ ingest.py. Run with: streamlit run scout_app.py
 
 import subprocess
 from pathlib import Path
-
+import sys
 import streamlit as st
 
 from retriever import retrieve
@@ -52,7 +52,7 @@ from scout_lib.styles import apply_styles
 CHROMA_DIR = "chroma_db"
 if not Path(CHROMA_DIR).exists():
     with st.spinner("Indexing documents for the first time (30-60 seconds)..."):
-        subprocess.run(["python", "ingest.py"], check=True)
+        subprocess.run([sys.executable, "ingest.py"], check=True)
 
 # ── Page config ────────────────────────────────────────────────────────
 st.set_page_config(page_title="Scout — Traced RAG", page_icon="📜", layout="wide")
