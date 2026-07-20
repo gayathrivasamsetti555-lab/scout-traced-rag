@@ -1,31 +1,7 @@
-"""
-Scout — A research assistant that shows its work.
-
-Streamlit port of the Scout HTML/JS demo. Reuses the same
-retrieve() / generate() functions as app.py so this can sit alongside
-(or replace) the plain chat UI, but renders the "traced retrieval"
-experience: a synthesized answer with citations, a retrieval-space
-scatter plot, and ranked passage cards with similarity bars.
-
-File layout:
-    scout_app.py            <- this file: session state, layout, callbacks
-    scout_lib/
-        head_meta.py         inject_head_metadata()
-        embeddings.py        get_embedder()
-        scoring.py           match_pct, rag_quality_score, retrieval_rationale
-        text_format.py       source labels, citation resolution, sentence highlighting
-        visuals.py           flow diagram, coverage map, retrieval-space + board figures
-        styles.py            CSS theme
-
-Drop this file (and scout_lib/) next to app.py, retriever.py, generator.py,
-ingest.py. Run with: streamlit run scout_app.py
-"""
-
 import subprocess
 from pathlib import Path
 import sys
 import streamlit as st
-
 from retriever import retrieve
 from generator import generate
 
@@ -206,13 +182,44 @@ if "scout_result" in st.session_state:
 
     # ── 1. Answer + retrieval space ──────────────────────────────────────
     section_head(1, "Synthesized answer")
+    # Calculate metrics for the Reason breakdown
+    score = quality['score']
+    if score >= 80:
+        confidence = "High"
+        color = "#2ecc71"  # Green
+    elif score >= 60:
+        confidence = "Medium"
+        color = "#f1c40f"  # Yellow
+    else:
+        confidence = "Low"
+        color = "#e74c3c"  # Red
+
+    # Based on your app setup:
+    # 12 total candidates retrieved, 5 kept in chunks, unique papers counted from source files
+    total_candidates = 12  
+    passed_to_gemini = len(chunks)
+    papers_contributed = len(set(c.get('source_file', '') for c in chunks))
+
     st.markdown(
         f"""
-        <div class="quality-badge">
-            <span class="num">{quality['score']}</span>
-            <span class="lbl">RAG quality: {quality['label']}</span>
+        <div style="border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: #111;">
+            <h4 style="margin: 0 0 12px 0; color: #fff;">RAG Quality Metrics</h4>
+            <div style="display: flex; gap: 40px;">
+                <div>
+                    <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Confidence</small>
+                    <div style="font-size: 22px; font-weight: bold; color: {color}; margin-top: 4px;">{confidence}</div>
+                </div>
+                <div>
+                    <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Reason</small>
+                    <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 14px; color: #ccc; list-style-type: disc; line-height: 1.6;">
+                        <li><b>{total_candidates}</b> retrieved chunks</li>
+                        <li><b>{passed_to_gemini}</b> passed to Gemini</li>
+                        <li><b>{papers_contributed}</b> papers contributed</li>
+                    </ul>
+                </div>
+            </div>
         </div>
-        """,
+    """,
         unsafe_allow_html=True,
     )
 
