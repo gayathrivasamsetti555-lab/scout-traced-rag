@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 import sys
 import streamlit as st
+import time
 from retriever import retrieve
 from generator import generate
 
@@ -131,10 +132,10 @@ if "pending_trace" not in st.session_state:
     st.session_state.pending_trace = False
 
 examples = [
-    "how does attention work in transformers?",
-    "why do language models hallucinate?",
-    "what is the best way to chunk documents?",
-    "how do vector databases scale?",
+    "How does attention work in transformers?",
+    "Why do low-rank adaptation (LoRA) matrices target specific weight matrices in the self-attention module while freezing MLPs?",
+    "What is the best way to chunk documents?",
+    "How does position bias (the 'lost in the middle' phenomenon) affect a language model's ability to utilize retrieved context?",
 ]
 
 query_col, btn_col = st.columns([5, 1])
@@ -199,27 +200,57 @@ if "scout_result" in st.session_state:
     total_candidates = 12  
     passed_to_gemini = len(chunks)
     papers_contributed = len(set(c.get('source_file', '') for c in chunks))
+    ret_start = time.perf_counter()
+# ... your retrieval logic ...
+    retrieval_time = time.perf_counter() - ret_start
+
+    gen_start = time.perf_counter()
+    # ... your generator logic ...
+    generation_time = time.perf_counter() - gen_start
+
+    # 2. Calculate similarity stats from distances (converting distance to similarity score)
+    similarities = [c.get('distance', 0) for c in chunks] if 'chunks' in locals() and chunks else []
+    highest_sim = (1.0 - min(similarities)) if similarities else 0.0
+    avg_sim = (1.0 - (sum(similarities) / len(similarities))) if similarities else 0.0
+
+    total_candidates = len(candidates) if 'candidates' in locals() else len(chunks)
+    passed_to_gemini = len(chunks) if 'chunks' in locals() else 0
+    papers_contributed = len(set(c.get('source', '') for c in chunks)) if 'chunks' in locals() else 0
 
     st.markdown(
         f"""
         <div style="border: 1px solid #333; padding: 15px; border-radius: 8px; margin-bottom: 20px; background-color: #111;">
             <h4 style="margin: 0 0 12px 0; color: #fff;">RAG Quality Metrics</h4>
-            <div style="display: flex; gap: 40px;">
+            <div style="display: flex; gap: 40px; flex-wrap: wrap;">
                 <div>
                     <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Confidence</small>
                     <div style="font-size: 22px; font-weight: bold; color: {color}; margin-top: 4px;">{confidence}</div>
                 </div>
                 <div>
-                    <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Reason</small>
+                    <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Similarity Stats</small>
                     <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 14px; color: #ccc; list-style-type: disc; line-height: 1.6;">
+                        <li>Highest: <b>{highest_sim:.3f}</b></li>
+                        <li>Average: <b>{avg_sim:.3f}</b></li>
+                    </ul>
+                </div>
+                <div>
+                    <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Performance</small>
+                    <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 14px; color: #ccc; list-style-type: disc; line-height: 1.6;">
+                        <li>Retrieval: <b>{retrieval_time:.3f}s</b></li>
+                        <li>Generation: <b>{generation_time:.3f}s</b></li>
+                    </ul>
+                </div>
+                <div>
+                    <small style="color: #888; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px;">Breakdown</small>
+                    <ul style="margin: 4px 0 0 0; padding-left: 18px; font-size: 14px; color: #ccc; list-style-type: disc; line-height: 1.6;">
+                        <li><b>{papers_contributed}</b> papers contributed</li>
                         <li><b>{total_candidates}</b> retrieved chunks</li>
                         <li><b>{passed_to_gemini}</b> passed to Gemini</li>
-                        <li><b>{papers_contributed}</b> papers contributed</li>
                     </ul>
                 </div>
             </div>
         </div>
-    """,
+        """,
         unsafe_allow_html=True,
     )
 
@@ -258,10 +289,12 @@ if "scout_result" in st.session_state:
     with right:
         st.markdown("<span class='panel-label'>Retrieval space</span>", unsafe_allow_html=True)
         ef = get_embedder()
+        # Increase figure height to make the retrieval space prominent
         fig = build_retrieval_space_fig(candidates, chunks, payload["question"], ef)
-        st.plotly_chart(fig, width="stretch", theme=None)
+        fig.update_layout(height=480, margin=dict(l=20, r=20, t=30, b=20))
+        st.plotly_chart(fig, use_container_width=True, theme=None)
         st.caption("🔵 your question · 🟠 retrieved chunk · ⚪ other candidates — hover any point for details")
-
+        
     # ── 2. Chunk Visual Board ─────────────────────────────────────────────
     section_head(2, "Chunk Visual Board — how chunks were selected")
 # 🎯 FIXED: Compute clean 0-100 percentages using the updated match_pct logic
