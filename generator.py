@@ -45,10 +45,15 @@ Question: {question}"""
 
     except errors.ServerError:
         return {
-            'answer': ("Gemini is temporarily overloaded on Google's side (a 503 — high demand, "
-                       "not something wrong with your setup or API key). The passages below were "
-                       "still retrieved successfully; wait a few seconds and hit retry."),
-            'sources': [], 'error': 'server_unavailable',
+            'answer': (
+                "Generation temporarily unavailable.\n\n"
+                "**Retrieval completed successfully.** The passages below were "
+                "retrieved correctly from your vector store; this is a temporary "
+                "model availability issue from the provider.\n\n"
+                "Please wait a few seconds and click **Retry**."
+            ),
+            'sources': sources,
+            'error': 'server_unavailable',
         }
 
     except errors.ClientError as e:
